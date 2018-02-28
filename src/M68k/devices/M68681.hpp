@@ -88,20 +88,35 @@ private:
 
   static long baudrate_table[32]; // Table of times for baud rates
 
+#ifdef _WIN32
+  void* coma_read_pipe;
+  void* coma_write_pipe;
+  void* comb_read_pipe;
+  void* comb_write_pipe;
+  void* coma_proc;
+  void* comb_proc;
+#else
   int coma_read_id;  // Pipe to command for port a
   int coma_write_id; // Pipe to command for port a
   int comb_read_id;  // Pipe to command for port b
   int comb_write_id; // Pipe to command for port b
   pid_t coma_pid;    // Proccess ID for port a command
   pid_t comb_pid;    // Proccess ID for port b command
-
+#endif
+  
   Address base_address;             // Base address of the DUART
   size_t offset_to_first_register;  // Offset to the first registers
   size_t offset_between_registers;  // Offset to between registers
   unsigned long interrupt_level;    // The interrupt level sent to CPU
-
+  
+#ifdef _WIN32
+  bool StartPortCommand(const std::string &command, bool std_flag,
+                              void* &read_pipe_id, void* &write_pipe_id,
+                              void* &pid);
+#else
   bool StartPortCommand(const std::string &command, bool std_flag, int &read,
                         int &write, pid_t &pid);
+#endif
 
   void SetInterruptStatusRegister();
 };

@@ -2,6 +2,11 @@
 // The Motorola 68681 DUART
 //
 
+#ifdef _WIN32
+  #include <windows.h> 
+  #include <stdlib.h>
+#endif
+
 #include <iostream>
 #include <sstream>
 #include <string>
@@ -148,9 +153,27 @@ M68681::M68681(const std::string &args, BasicCPU &cpu)
   std::string portBCommand(args, loc, args.size() - loc);
 
   // Default Invalid values for everything
+#ifdef _WIN32
+  coma_proc = coma_write_pipe = coma_read_pipe = NULL;
+  comb_proc = comb_write_pipe = comb_read_pipe = NULL;
+  if (portACommand != "") {
+    if (!StartPortCommand(portACommand, portAStdIOFlag, coma_read_pipe,
+                          coma_write_pipe, coma_proc)) {
+      ErrorMessage("Problem starting port a's process!");
+      return;
+    }
+  }
+  if (portBCommand != "") {
+    if (!StartPortCommand(portBCommand, portBStdIOFlag, comb_read_pipe,
+                          comb_write_pipe, comb_proc)) {
+      ErrorMessage("Problem starting port b's process!");
+      return;
+    }
+  }
+#else
   coma_pid = coma_read_id = coma_write_id = -1;
   comb_pid = comb_read_id = comb_write_id = -1;
-
+  
   // Startup the process for port a
   if (portACommand != "") {
     if (!StartPortCommand(portACommand, portAStdIOFlag, coma_read_id,
@@ -168,17 +191,27 @@ M68681::M68681(const std::string &args, BasicCPU &cpu)
       return;
     }
   }
+#endif
+
 
   // Reset the DUART to its startup state
   Reset();
 
+#ifdef _WIN32
+  if (coma_read_pipe != NULL) {
+#else
   if (coma_read_id != -1) {
+#endif
     // Schedule an event to start checking the A pipe
     (cpu.eventHandler())
         .Add(this, READ_A_CALLBACK, 0, DEFAULT_READ_CALLBACK_DURATION);
   }
 
+#ifdef _WIN32
+  if (comb_read_pipe != NULL) {
+#else
   if (comb_read_id != -1) {
+#endif
     // Schedule an event to start checking the B pipe
     (cpu.eventHandler())
         .Add(this, READ_B_CALLBACK, 0, DEFAULT_READ_CALLBACK_DURATION);
@@ -186,6 +219,87 @@ M68681::M68681(const std::string &args, BasicCPU &cpu)
 }
 
 // Startup a process
+#ifdef _WIN32
+bool M68681::StartPortCommand(const std::string &command, bool std_flag,
+                              HANDLE &read_pipe_id, HANDLE &write_pipe_id,
+                              HANDLE &pid) {
+                                HANDLE job = CreateJobObject(NULL, NULL);
+  BOOL injob = false;
+  IsProcessInJob(GetCurrentProcess(), NULL, &injob);
+  if(!injob) {
+    JOBOBJECT_EXTENDED_LIMIT_INFORMATION jobinfo = {0};
+    jobinfo.BasicLimitInformation.LimitFlags = JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE;
+    if(job == NULL || SetInformationJobObject( job, JobObjectExtendedLimitInformation, &jobinfo, sizeof(jobinfo)) == 0)
+      job = NULL;
+    if(job == NULL || !AssignProcessToJobObject(job, OpenProcess(PROCESS_ALL_ACCESS, FALSE, GetCurrentProcessId())))
+      job = NULL;
+  }
+  SECURITY_ATTRIBUTES saAttr;
+  saAttr.nLength = sizeof(SECURITY_ATTRIBUTES); 
+  saAttr.bInheritHandle = TRUE; 
+  saAttr.lpSecurityDescriptor = NULL;
+  HANDLE g_hChildStd_IN_Rd = NULL;
+  HANDLE g_hChildStd_IN_Wr = NULL;
+  HANDLE g_hChildStd_OUT_Rd = NULL;
+  HANDLE g_hChildStd_OUT_Wr = NULL;
+  if (!CreatePipe(&g_hChildStd_OUT_Rd, &g_hChildStd_OUT_Wr, &saAttr, 0))
+    return false;
+  if (!CreatePipe(&g_hChildStd_IN_Rd, &g_hChildStd_IN_Wr, &saAttr, 0))
+    return false;
+  if (!SetHandleInformation(g_hChildStd_OUT_Rd, HANDLE_FLAG_INHERIT, 0))
+    return false;
+  if (!SetHandleInformation(g_hChildStd_IN_Wr, HANDLE_FLAG_INHERIT, 0))
+    return false;
+
+  STARTUPINFO lpStartupInfo;
+  PROCESS_INFORMATION lpProcessInfo;
+  memset(&lpStartupInfo, 0, sizeof(lpStartupInfo));
+  memset(&lpProcessInfo, 0, sizeof(lpProcessInfo));
+  
+  std::stringstream cmd;
+  lpStartupInfo.cb = sizeof(STARTUPINFO);
+  if(std_flag) {
+    //cmd << command;
+    lpStartupInfo.hStdError = g_hChildStd_OUT_Wr;
+    lpStartupInfo.hStdOutput = g_hChildStd_OUT_Wr;
+    lpStartupInfo.hStdInput = g_hChildStd_IN_Rd;
+    lpStartupInfo.dwFlags |= STARTF_USESTDHANDLES;
+  } else {
+    //cmd << "xtermpipe.exe " << g_hChildStd_IN_Rd;
+	//cmd << " " << g_hChildStd_OUT_Wr;
+	//cmd << " " << command;
+  }
+  std::stringstream ssRd;
+  ssRd << g_hChildStd_IN_Rd;
+  std::stringstream ssWr;
+  ssWr << g_hChildStd_OUT_Wr;
+  if (! SetEnvironmentVariable(TEXT("HandleRd"), ssRd.str().c_str())) {
+    printf("SetEnvironmentVariable failed\n"); 
+  }
+  if (! SetEnvironmentVariable(TEXT("HandleWr"), ssWr.str().c_str())) {
+    printf("SetEnvironmentVariable failed\n"); 
+  }
+  
+  if (!CreateProcess(NULL, (LPSTR) command.c_str(), NULL, NULL, true, CREATE_NEW_CONSOLE, NULL, NULL,
+                   &lpStartupInfo, &lpProcessInfo )) {
+    return false;
+  }
+  /*if (!CreateProcess(NULL, (LPSTR) cmd.str().c_str(), NULL, NULL, true, CREATE_NEW_CONSOLE, NULL, NULL,
+                   &lpStartupInfo, &lpProcessInfo )) {
+    return false;
+  }*/
+  
+  read_pipe_id = g_hChildStd_OUT_Rd;
+  write_pipe_id = g_hChildStd_IN_Wr;
+  CloseHandle(g_hChildStd_IN_Rd);
+  CloseHandle(g_hChildStd_OUT_Wr);
+  pid = lpProcessInfo.hProcess;
+  //CloseHandle(lpProcessInfo.hProcess);
+  //CloseHandle(lpProcessInfo.hThread);
+  return true;
+}
+#else
+	
 bool M68681::StartPortCommand(const std::string &command, bool std_flag,
                               int &read_pipe_id, int &write_pipe_id,
                               pid_t &pid) {
@@ -260,9 +374,26 @@ bool M68681::StartPortCommand(const std::string &command, bool std_flag,
     return true;
   }
 }
+#endif
+
 
 M68681::~M68681() {
   // We need to destory the Command Process
+#ifdef _WIN32
+  if(coma_read_pipe != NULL) {
+    CloseHandle(coma_read_pipe);
+	CloseHandle(coma_write_pipe);
+	TerminateProcess(coma_proc, 1);
+	CloseHandle(coma_proc);
+  }
+  
+  if(coma_read_pipe != NULL) {
+    CloseHandle(coma_read_pipe);
+	CloseHandle(coma_write_pipe);
+	TerminateProcess(comb_proc, 1);
+	CloseHandle(comb_proc);
+  }
+#else
   if (coma_pid != -1) {
     close(coma_read_id);
     close(coma_write_id);
@@ -275,6 +406,7 @@ M68681::~M68681() {
     close(comb_write_id);
     kill(comb_pid, SIGKILL);
   }
+#endif
 }
 
 // Perform a reset on the DUART
@@ -501,6 +633,12 @@ void M68681::Poke(Address addr, Byte c) {
   }
 }
 
+#ifdef _WIN32
+  
+#else
+	
+#endif
+
 // Handle event callbacks
 void M68681::EventCallback(int type, void *) {
   SetInterruptStatusRegister();
@@ -509,7 +647,11 @@ void M68681::EventCallback(int type, void *) {
     Byte c;
 
     // If pipe is not availiable then just pretend we sent it somewhere
-    if (coma_write_id == -1) {
+#ifdef _WIN32
+    if (coma_write_pipe == NULL) {
+#else
+	if (coma_write_id == -1) {
+#endif
       SRA |= TxRDY; // Ready for more data
       SRA |= TxEMT; // Transmitter is empty
       SetInterruptStatusRegister();
@@ -542,7 +684,12 @@ void M68681::EventCallback(int type, void *) {
       break;
 
     default: // Normal mode
-      if (write(coma_write_id, &c, 1) != 1) {
+#ifdef _WIN32
+      DWORD written = 0;
+      if (!WriteFile(coma_write_pipe, &c, 1, &written, NULL) || written < 1) {
+#else
+	  if (write(coma_write_id, &c, 1) != 1) {
+#endif
         exit(1);
       }
       SRA |= TxRDY; // Ready for more data
@@ -561,7 +708,14 @@ void M68681::EventCallback(int type, void *) {
     }
 
     // Try to read a byte from the pipe
+#ifdef _WIN32
+    DWORD read = 0;
+	PeekNamedPipe(coma_read_pipe, NULL, 0, NULL, &read, NULL);
+    if(read > 0 && ReadFile(coma_read_pipe, &c, 1, &read, NULL) && read == 1) {
+      //fprintf(stdout, "Leido %c\n", c);
+#else
     if (read(coma_read_id, &c, 1) == 1) {
+#endif
       // Mask off bits that shouldn't be received
       switch (MR1A & 3) {
       case 0:
@@ -581,7 +735,12 @@ void M68681::EventCallback(int type, void *) {
       // Handle any special stuff for the funky modes
       switch ((MR2A & 0xc0) >> 6) {
       case 1: // Automatic-echo mode
-        if (write(coma_write_id, &RBA, 1) != 1) {
+#ifdef _WIN32
+        DWORD written = 0;
+        if (!WriteFile(coma_write_pipe, &RBB, 1, &written, NULL) || written < 1) {
+#else
+	    if (write(coma_write_id, &RBB, 1) != 1) {
+#endif
           exit(1);
         }
         break;
@@ -611,7 +770,11 @@ void M68681::EventCallback(int type, void *) {
     Byte c;
 
     // If pipe is not availiable then just pertend we sent it somewhere
-    if (comb_write_id == -1) {
+#ifdef _WIN32
+    if (comb_write_pipe == NULL) {
+#else
+	if (comb_write_id == -1) {
+#endif
       SRB |= TxRDY;
       SRB |= TxEMT;
       SetInterruptStatusRegister();
@@ -646,7 +809,12 @@ void M68681::EventCallback(int type, void *) {
     case 3: // Multidrop mode (not implemented)
 
     default: // Normal mode
-      if (write(comb_write_id, &c, 1) != 1) {
+#ifdef _WIN32
+    DWORD written = 0;
+    if (!WriteFile(comb_write_pipe, &c, 1, &written, NULL) || written < 1) {
+#else
+	if (write(comb_write_id, &c, 1) != 1) {
+#endif
         exit(1);
       }
       SRB |= TxRDY;
@@ -674,7 +842,14 @@ void M68681::EventCallback(int type, void *) {
     }
 
     // Try to read a byte from the pipe
+#ifdef _WIN32
+    DWORD read = 0;
+	PeekNamedPipe(comb_read_pipe, NULL, 0, NULL, &read, NULL);
+    if(read > 0 && ReadFile(comb_read_pipe, &c, 1, &read, NULL) && read == 1) {
+      //fprintf(stdout, "Leido %c\n", c);
+#else
     if (read(comb_read_id, &c, 1) == 1) {
+#endif
       // Mask off bits that shouldn't be received
       switch (MR1B & 3) {
       case 0:
@@ -694,7 +869,12 @@ void M68681::EventCallback(int type, void *) {
       // Handle any special stuff for the funky modes
       switch ((MR2B & 0xc0) >> 6) {
       case 1: // Automatic-echo mode (transmitter link disabled)
-        if (write(comb_write_id, &RBB, 1) != 1) {
+#ifdef _WIN32
+        DWORD written = 0;
+        if (!WriteFile(comb_write_pipe, &RBB, 1, &written, NULL) || written < 1) {
+#else
+	    if (write(comb_write_id, &RBB, 1) != 1) {
+#endif
           exit(1);
         }
         break;

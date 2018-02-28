@@ -41,8 +41,13 @@ public:
 private:
   Address m_base_address;       // Base address of the device
   int m_port;                   // socket port number
+#ifdef _WIN32
+  unsigned long long int m_server_socket;
+  unsigned long long int m_client_socket;
+#else
   int m_server_socket;          // server socket identifier
   int m_client_socket;          // client socket identifier
+#endif
   int m_status;                 // 1 if connected, 0 otherwise
 
   Byte *m_received_buffer;

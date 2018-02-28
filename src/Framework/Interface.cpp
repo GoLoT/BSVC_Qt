@@ -1,3 +1,8 @@
+#ifdef _WIN32
+#include <conio.h>
+#include <windows.h>
+#endif
+
 #include <sys/time.h>
 #include <sys/types.h>
 #include <unistd.h>
@@ -506,6 +511,12 @@ void Interface::Run(const std::string &args) {
     }
     // Poll for input every 1024 steps
     else if ((steps & 0x03FF) == 0) {
+#ifdef _WIN32
+      static HANDLE h = GetStdHandle(STD_INPUT_HANDLE);
+      DWORD r;
+      PeekNamedPipe(h, NULL, 0, NULL, &r, NULL);
+      if(r>0) {
+#else
       fd_set rfds;
       struct timeval tv;
       int retval;
@@ -523,6 +534,8 @@ void Interface::Run(const std::string &args) {
       // Stop running if data is ready to be read
       if (retval == 1) {
         // Read the "StopRunning" Command
+
+#endif
         std::string dummy;
         std::getline(myInputStream, dummy);
 

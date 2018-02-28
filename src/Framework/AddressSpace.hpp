@@ -14,11 +14,13 @@
 class BasicDevice;
 
 // Size Constants
+#if !defined(_WINSOCK2API_) && !defined(_WINDOWS_)
 enum {
   BYTE,
   WORD,
   LONG,
 };
+#endif
 
 class AddressSpace {
 public:

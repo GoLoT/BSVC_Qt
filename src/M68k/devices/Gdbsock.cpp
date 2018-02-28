@@ -21,9 +21,14 @@
 
 #include <sys/time.h>
 #include <sys/types.h>
-#include <sys/socket.h>
-#include <netinet/in.h>
-#include <netdb.h>
+#ifdef _WIN32
+  #include <winsock2.h>
+  //#pragma comment(lib, "Ws2_32.lib")
+#else
+  #include <sys/socket.h>
+  #include <netinet/in.h>
+  #include <netdb.h>
+#endif
 #include <unistd.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -45,8 +50,13 @@ GdbSocket::GdbSocket(const std::string &args, BasicCPU &cpu)
   Address base;
 
   m_port = 0;
+#ifdef _WIN32
+  m_server_socket = INVALID_SOCKET;
+  m_client_socket = INVALID_SOCKET;
+#else
   m_server_socket = -1;
   m_client_socket = -1;
+#endif
   m_status = 0;
 
   m_send_buffer = new Byte[BUFFER_LENGTH];
@@ -84,29 +94,59 @@ GdbSocket::~GdbSocket() {
   delete[] m_send_buffer;
 
   // stop the client
+#ifdef _WIN32
+  if (m_client_socket != INVALID_SOCKET) {
+    closesocket(m_client_socket);
+#else
   if (m_client_socket != -1) {
     close(m_client_socket);
+#endif
   }
   // stop the server
-  if (m_server_socket != -1) {
+#ifdef _WIN32
+  if (m_server_socket != INVALID_SOCKET) {
     shutdown(m_server_socket, 2);
-    close(m_server_socket);
+    closesocket(m_client_socket);
+#else
+  if (m_server_socket != -1) {
+	shutdown(m_server_socket, 2);
+    close(m_client_socket);
+#endif
   }
 }
 
 void GdbSocket::SetupServer() {
-  struct sockaddr_in addr;
+#ifdef _WIN32
+  WSADATA wsaData;
+  if(WSAStartup(0x202, &wsaData) == 0) {
+    
+  } else
+	return;
+#endif
 
+
+  struct sockaddr_in addr;
   m_server_socket = socket(AF_INET, SOCK_STREAM, 0);
+#ifdef _WIN32
+  if(m_server_socket == INVALID_SOCKET) {
+    m_server_socket = 1;
+	return;
+  }
+#else
   if (m_server_socket < 0) {
     return;
   }
+#endif
   addr.sin_family = AF_INET;
   addr.sin_addr.s_addr = INADDR_ANY;
   addr.sin_port = htons(m_port);
 
   if (bind(m_server_socket, (struct sockaddr *)&addr, sizeof(addr)) < 0) {
+#ifdef _WIN32
+    closesocket(m_server_socket);
+#else
     close(m_server_socket);
+#endif
     m_server_socket = -1;
     return;
   }
@@ -115,8 +155,13 @@ void GdbSocket::SetupServer() {
   // the 'accept' and other operations will be performed
   // through select calls, periodically (see EventCallback).
   if (listen(m_server_socket, 1) < 0) {
+#ifdef _WIN32
+    closesocket(m_server_socket);
+    m_server_socket = INVALID_SOCKET;
+#else
     close(m_server_socket);
     m_server_socket = -1;
+#endif
     return;
   }
 }
@@ -131,13 +176,23 @@ void GdbSocket::Reset() {
   m_received_first = 0;
 
   // stop the client
+#ifdef _WIN32
+  if (m_client_socket != INVALID_SOCKET) {
+    closesocket(m_client_socket);
+    WSACleanup();
+#else
   if (m_client_socket != -1) {
     close(m_client_socket);
+#endif
     m_client_socket = -1;
     m_status = 0;
   }
   // start the server if necessary
+#ifdef _WIN32
+  if (m_server_socket == INVALID_SOCKET) {
+#else
   if (m_server_socket == -1) {
+#endif
     SetupServer();
   }
 }
@@ -153,12 +208,20 @@ Byte GdbSocket::Peek(Address addr) {
 
   if (addr == 0) {
     // read status byte
+#ifdef _WIN32
+    if (m_server_socket == INVALID_SOCKET) {
+#else
     if (m_server_socket == -1) {
+#endif
       // server not started.
       return c;
     }
     c |= 1;
+#ifdef _WIN32
+    if (m_client_socket == INVALID_SOCKET) {
+#else
     if (m_client_socket == -1) {
+#endif
       // no connected client.
       return c;
     }
@@ -236,7 +299,7 @@ void GdbSocket::EventCallback(int type, void *pointer) {
       }
       if ((result >= 1) && (m_send_length > 0) &&
           (FD_ISSET(m_client_socket, &w))) {
-        result = send(m_client_socket, m_send_buffer, m_send_length, 0);
+        result = send(m_client_socket, (const char*) m_send_buffer, m_send_length, 0);
         if (result != m_send_length) {
           break;
         }
@@ -260,7 +323,11 @@ void GdbSocket::EventCallback(int type, void *pointer) {
     result = select(m_server_socket + 1, &r, &w, &e, &delay);
     if ((result == 1) && (FD_ISSET(m_server_socket, &r))) {
       m_client_socket = accept(m_server_socket, NULL, NULL);
-      if (m_client_socket != -1) {
+#ifdef _WIN32
+      if (m_client_socket == INVALID_SOCKET) {
+#else
+      if (m_client_socket == -1) {
+#endif
         m_status = 1;
       }
     }

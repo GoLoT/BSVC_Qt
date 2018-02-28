@@ -1,0 +1,7 @@
+*.o
+*.d
+*.exe
+*.a
+DecodeTable.hpp
+*.scr
+
