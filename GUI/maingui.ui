@@ -1,0 +1,66 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<ui version="4.0">
+ <class>MainGUI</class>
+ <widget class="QMainWindow" name="MainGUI">
+  <property name="geometry">
+   <rect>
+    <x>0</x>
+    <y>0</y>
+    <width>1320</width>
+    <height>879</height>
+   </rect>
+  </property>
+  <property name="windowTitle">
+   <string>MainWindow</string>
+  </property>
+  <widget class="QWidget" name="centralwidget">
+   <layout class="QGridLayout" name="gridLayout">
+    <item row="0" column="0">
+     <layout class="QVBoxLayout" name="verticalLayout">
+      <item>
+       <layout class="QHBoxLayout" name="horizontalLayout">
+        <item>
+         <widget class="QDockWidget" name="dockWidget_6">
+          <widget class="QWidget" name="dockWidgetContents_6"/>
+         </widget>
+        </item>
+        <item>
+         <widget class="QDockWidget" name="dockWidget_5">
+          <widget class="QWidget" name="dockWidgetContents_5"/>
+         </widget>
+        </item>
+       </layout>
+      </item>
+      <item>
+       <widget class="QDockWidget" name="dockWidget_4">
+        <widget class="QWidget" name="dockWidgetContents_4"/>
+       </widget>
+      </item>
+     </layout>
+    </item>
+   </layout>
+  </widget>
+  <widget class="QMenuBar" name="menubar">
+   <property name="geometry">
+    <rect>
+     <x>0</x>
+     <y>0</y>
+     <width>1320</width>
+     <height>21</height>
+    </rect>
+   </property>
+   <property name="nativeMenuBar">
+    <bool>true</bool>
+   </property>
+   <widget class="QMenu" name="menuBSVC_Qt">
+    <property name="title">
+     <string>File</string>
+    </property>
+   </widget>
+   <addaction name="menuBSVC_Qt"/>
+  </widget>
+  <widget class="QStatusBar" name="statusbar"/>
+ </widget>
+ <resources/>
+ <connections/>
+</ui>

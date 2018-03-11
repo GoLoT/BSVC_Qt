@@ -3,5 +3,5 @@
 *.exe
 *.a
 DecodeTable.hpp
-*.scr
+*.pro.user
 
