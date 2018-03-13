@@ -43,7 +43,7 @@ MC68360 support was provded by Jorand Didier.  Much work was done by Xavier Plas
 
 On April 29, 2015, BSVC was relicensed under the GNU Public License, version 2.1.
 
-On March, 2018, it was partially rewritten with Qt support and licensed under LGPL 2.1.
+On March, 2018, it was partially rewritten by Álvaro Muñoz with Qt support and licensed under LGPL 2.1.
 
 # Installing Qt
 
