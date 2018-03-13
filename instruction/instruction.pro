@@ -22,4 +22,7 @@ DEFINES += QT_DEPRECATED_WARNINGS
 SOURCES += \
     ../M68k/instruction.c
 
-QMAKE_CXXFLAGS += -std=c++11
+target.path = $$OUT_PWD/../instruction/
+INSTALLS += target
+
+DESTDIR = ./

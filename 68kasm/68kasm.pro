@@ -35,3 +35,5 @@ SOURCES += \
 
 HEADERS += \
     ../Assemblers/68kasm/asm.h
+
+QMAKE_CFLAGS += -std=c99

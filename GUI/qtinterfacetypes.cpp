@@ -111,7 +111,7 @@ void RegisterModelList::onRegisterChanged(std::string name, std::string value) {
 MemoryModelList::MemoryModelList(MainWindow* window, QObject *parent)
   : QAbstractListModel(parent),
   window(window) {
-
+  connect(window,SIGNAL(memoryChanged()),this,SLOT(memoryChanged()));
 }
 
 int MemoryModelList::rowCount(const QModelIndex & parent) const {

@@ -312,7 +312,10 @@ void MainWindow::setStatusbarTemp(std::string str) {
 
 void MainWindow::on_createProcessorButton_pressed()
 {
-  newProcessor(ui->setupProcesssorComboBox->currentText());
+  if(!running)
+    newProcessor(ui->setupProcesssorComboBox->currentText());
+  else
+    setStatusbarTemp(QString("Can't do that while running!"));
 }
 
 void MainWindow::onRegistersChanged() {
@@ -488,10 +491,13 @@ void MainWindow::on_removeBPButton_pressed()
 }
 
 void MainWindow::onListingLoaded() {
+  onProgramCounterChanged();
   ui->centralTabWidget->setCurrentIndex(0);
 }
 
 void MainWindow::onProgramCounterChanged() {
+  if(interface==NULL)
+    return;
   Address pc = StringToInt(interface->ProgramCounterValue());
   emit programCounterChanged(pc);
   ui->codeList->scrollTo(code->getLastPCIndex(),QAbstractItemView::PositionAtCenter);
@@ -534,4 +540,14 @@ void MainWindow::onStartRunning() {
 
 bool MainWindow::isRunning() {
   return running;
+}
+
+void MainWindow::on_actionSet_RunStep_delay_triggered()
+{
+  bool ok;
+  int value = QInputDialog::getInt(this, tr("Set delay"),
+                            tr("Milliseconds:"),
+                            runStepWait, 25, 1000, 5, &ok);
+  if (ok)
+    runStepWait = value;
 }

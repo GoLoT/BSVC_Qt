@@ -64,12 +64,11 @@ INCLUDEPATH += $$PWD/..
 
 QMAKE_EXTRA_TARGETS += buildtable cleantemp
 buildtable.target = buildtable
-CONFIG(release, debug|release):buildtable.commands = \"$$OUT_PWD/../instruction/instruction\" \"$$PWD/../M68k/sim68360/instruction.list\" \"$$PWD/../M68k/sim68360/DecodeTable.hpp\" cpu32
-CONFIG(debug, debug|release):buildtable.commands = \"$$OUT_PWD/../instruction/debug/instruction\" \"$$PWD/../M68k/sim68360/instruction.list\" \"$$PWD/../M68k/sim68360/DecodeTable.hpp\" cpu32
+buildtable.commands = \"$$OUT_PWD/../instruction/instruction\" \"$$PWD/../M68k/sim68360/instruction.list\" \"$$PWD/../M68k/sim68360/DecodeTable.hpp\" cpu32
+#CONFIG(release, debug|release):buildtable.commands = \"$$OUT_PWD/../instruction/instruction\" \"$$PWD/../M68k/sim68360/instruction.list\" \"$$PWD/../M68k/sim68360/DecodeTable.hpp\" cpu32
+#CONFIG(debug, debug|release):buildtable.commands = \"$$OUT_PWD/../instruction/debug/instruction\" \"$$PWD/../M68k/sim68360/instruction.list\" \"$$PWD/../M68k/sim68360/DecodeTable.hpp\" cpu32
 
 all.depends = buildtable
 cleantemp = del \"$$PWD/../M68k/sim68360/DecodeTable.hpp\"
 clean.depends = cleantemp
 PRE_TARGETDEPS += buildtable
-
-QMAKE_CXXFLAGS += -std=c++11

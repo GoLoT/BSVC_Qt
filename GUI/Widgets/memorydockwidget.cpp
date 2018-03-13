@@ -12,7 +12,6 @@ MemoryDockWidget::MemoryDockWidget(MainWindow* window, Address startAddress, boo
     this->setFeatures(QDockWidget::DockWidgetMovable | QDockWidget::DockWidgetFloatable | QDockWidget::DockWidgetClosable);
   else
     this->setFeatures(QDockWidget::DockWidgetMovable | QDockWidget::DockWidgetFloatable);
-  memoryView = new QTableView();
   //this->layout()->addWidget(memoryView);
   if(closable)
     this->setObjectName(QStringLiteral("altMemoryDock"));
@@ -41,20 +40,20 @@ MemoryDockWidget::MemoryDockWidget(MainWindow* window, Address startAddress, boo
   memoryView->setSortingEnabled(false);
   layout->addWidget(memoryView, 0, 0, 1, 1);
   this->setWidget(dockContent);
-  if(closable)
-    window->memoryDockList.append(this);
   memoryView->setModel(window->memory);
   /*for(int i=0;i<2;i++)
     memoryView->horizontalHeader()->setSectionResizeMode(i, QHeaderView::Stretch);*/
   memoryView->horizontalHeader()->setSectionResizeMode(0, QHeaderView::Stretch);
-  memoryView->scrollTo(window->memory->index((startAddress/16)&0xFFFFFFF0));
   memoryView->horizontalHeader()->setFixedHeight(20);
 
   QHeaderView *verticalHeader = memoryView->verticalHeader();
   verticalHeader->setSectionResizeMode(QHeaderView::Fixed);
   verticalHeader->setDefaultSectionSize(20);
 
+  /*if(closable)
+    window->memoryDockList.append(this);*/
   window->memoryDockList.append(this);
+  memoryView->scrollTo(window->memory->index((startAddress/16)&0xFFFFFFF0));
 }
 
 MemoryDockWidget::~MemoryDockWidget()

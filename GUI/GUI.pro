@@ -46,7 +46,8 @@ SOURCES += \
     mainwindow.cpp \
     qtinterface.cpp \
     qtinterfacetypes.cpp \
-    Widgets/memorydockwidget.cpp
+    Widgets/memorydockwidget.cpp \
+    Widgets/duartportdockwidget.cpp
 
 HEADERS += \
         mainwindow.h \
@@ -73,7 +74,8 @@ HEADERS += \
     mainwindow.h \
     qtinterface.h \
     qtinterfacetypes.h \
-    Widgets/memorydockwidget.h
+    Widgets/memorydockwidget.h \
+    Widgets/duartportdockwidget.h
 
 FORMS += \
     mainwindow.ui
@@ -82,14 +84,16 @@ INCLUDEPATH += $$PWD/..
 
 QMAKE_EXTRA_TARGETS += buildtable cleantemp
 buildtable.target = buildtable
-CONFIG(release, debug|release):buildtable.commands = \"$$OUT_PWD/../instruction/instruction\" \"$$PWD/../M68k/sim68000/instruction.list\" \"$$PWD/../M68k/sim68000/DecodeTable.hpp\" m68000
-CONFIG(debug, debug|release):buildtable.commands = \"$$OUT_PWD/../instruction/debug/instruction\" \"$$PWD/../M68k/sim68000/instruction.list\" \"$$PWD/../M68k/sim68000/DecodeTable.hpp\" m68000
-CONFIG(release, debug|release):buildtable.commands += && \"$$OUT_PWD/../instruction/instruction\" \"$$PWD/../M68k/sim68360/instruction.list\" \"$$PWD/../M68k/sim68360/DecodeTable.hpp\" cpu32
-CONFIG(debug, debug|release):buildtable.commands += && \"$$OUT_PWD/../instruction/debug/instruction\" \"$$PWD/../M68k/sim68360/instruction.list\" \"$$PWD/../M68k/sim68360/DecodeTable.hpp\" cpu32
+buildtable.commands = \"$$OUT_PWD/../instruction/instruction\" \"$$PWD/../M68k/sim68000/instruction.list\" \"$$PWD/../M68k/sim68000/DecodeTable.hpp\" m68000
+buildtable.commands += && \"$$OUT_PWD/../instruction/instruction\" \"$$PWD/../M68k/sim68360/instruction.list\" \"$$PWD/../M68k/sim68360/DecodeTable.hpp\" cpu32
+#CONFIG(release, debug|release):buildtable.commands = \"$$OUT_PWD/../instruction/instruction\" \"$$PWD/../M68k/sim68000/instruction.list\" \"$$PWD/../M68k/sim68000/DecodeTable.hpp\" m68000
+#CONFIG(debug, debug|release):buildtable.commands = \"$$OUT_PWD/../instruction/debug/instruction\" \"$$PWD/../M68k/sim68000/instruction.list\" \"$$PWD/../M68k/sim68000/DecodeTable.hpp\" m68000
+#CONFIG(release, debug|release):buildtable.commands += && \"$$OUT_PWD/../instruction/instruction\" \"$$PWD/../M68k/sim68360/instruction.list\" \"$$PWD/../M68k/sim68360/DecodeTable.hpp\" cpu32
+#CONFIG(debug, debug|release):buildtable.commands += && \"$$OUT_PWD/../instruction/debug/instruction\" \"$$PWD/../M68k/sim68360/instruction.list\" \"$$PWD/../M68k/sim68360/DecodeTable.hpp\" cpu32
 
 all.depends = buildtable
 cleantemp = del \"$$PWD/../M68k/sim68000/DecodeTable.hpp\" \"$$PWD/../M68k/sim68360/DecodeTable.hpp\"
 clean.depends = cleantemp
 PRE_TARGETDEPS += buildtable
 
-QMAKE_CXXFLAGS += -std=c++11
+DEFINES += BSVC_QT_GUI

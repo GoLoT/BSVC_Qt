@@ -96,7 +96,11 @@ long M68681::baudrate_table[32] = {
 };
 
 // The Constructor
+#ifdef BSVC_QT_GUI
+M68681::M68681(const std::string &args, BasicCPU &cpu, QWidget* parent)
+#else
 M68681::M68681(const std::string &args, BasicCPU &cpu)
+#endif
     : BasicDevice("M68681", args, cpu) {
   std::istringstream in(args);
   std::string keyword, equals;
@@ -160,6 +164,12 @@ M68681::M68681(const std::string &args, BasicCPU &cpu)
   coma_proc = coma_write_pipe = coma_read_pipe = NULL;
   comb_proc = comb_write_pipe = comb_read_pipe = NULL;
   if (portACommand != "") {
+#ifdef BSVC_QT_GUI
+    if(!portACommand.compare(0, 8, "BSVC_GUI")) {
+      std::string title = portACommand.length() > 9?portACommand.substr(9):"Port";
+      dockPortA = new DUARTPortDockWidget(title, parent);
+    } else
+#endif
     if (!StartPortCommand(portACommand, portAStdIOFlag, coma_read_pipe,
                           coma_write_pipe, coma_proc)) {
       ErrorMessage("Problem starting port a's process!");
@@ -167,6 +177,12 @@ M68681::M68681(const std::string &args, BasicCPU &cpu)
     }
   }
   if (portBCommand != "") {
+#ifdef BSVC_QT_GUI
+    if(!portBCommand.compare(0, 8, "BSVC_GUI")) {
+      std::string title = portBCommand.length() > 9?portBCommand.substr(9):"Port";
+      dockPortB = new DUARTPortDockWidget(title, parent);
+    } else
+#endif
     if (!StartPortCommand(portBCommand, portBStdIOFlag, comb_read_pipe,
                           comb_write_pipe, comb_proc)) {
       ErrorMessage("Problem starting port b's process!");
@@ -219,6 +235,14 @@ M68681::M68681(const std::string &args, BasicCPU &cpu)
     (cpu.eventHandler())
         .Add(this, READ_B_CALLBACK, 0, DEFAULT_READ_CALLBACK_DURATION);
   }
+
+#ifdef BSVC_QT_GUI
+  if(dockPortA!=NULL)
+    (cpu.eventHandler()).Add(this, READ_A_CALLBACK, 0, DEFAULT_READ_CALLBACK_DURATION);
+  if(dockPortB!=NULL)
+    (cpu.eventHandler()).Add(this, READ_B_CALLBACK, 0, DEFAULT_READ_CALLBACK_DURATION);
+#endif
+
 }
 
 // Startup a process
@@ -409,6 +433,12 @@ M68681::~M68681() {
     close(comb_write_id);
     kill(comb_pid, SIGKILL);
   }
+#endif
+#ifdef BSVC_QT_GUI
+  if(dockPortA!=NULL)
+    delete dockPortA;
+  if(dockPortB!=NULL)
+    delete dockPortB;
 #endif
 }
 
@@ -636,12 +666,6 @@ void M68681::Poke(Address addr, Byte c) {
   }
 }
 
-#ifdef _WIN32
-  
-#else
-	
-#endif
-
 // Handle event callbacks
 void M68681::EventCallback(int type, void *) {
   SetInterruptStatusRegister();
@@ -651,10 +675,14 @@ void M68681::EventCallback(int type, void *) {
 
     // If pipe is not availiable then just pretend we sent it somewhere
 #ifdef _WIN32
-    if (coma_write_pipe == NULL) {
+    if (coma_write_pipe == NULL
 #else
-	if (coma_write_id == -1) {
+    if (coma_write_id == -1
 #endif
+    #ifdef BSVC_QT_GUI
+        && dockPortA == NULL
+    #endif
+        ) {
       SRA |= TxRDY; // Ready for more data
       SRA |= TxEMT; // Transmitter is empty
       SetInterruptStatusRegister();
@@ -687,14 +715,23 @@ void M68681::EventCallback(int type, void *) {
       break;
 
     default: // Normal mode
+#ifdef BSVC_QT_GUI
+        if(dockPortA!=NULL) {
+          if(!dockPortA->writeByte(&c))
+            exit(1);
+        } else {
+#endif
 #ifdef _WIN32
       DWORD written = 0;
       if (!WriteFile(coma_write_pipe, &c, 1, &written, NULL) || written < 1) {
 #else
-	  if (write(coma_write_id, &c, 1) != 1) {
+      if (write(coma_write_id, &c, 1) != 1) {
 #endif
         exit(1);
       }
+#ifdef BSVC_QT_GUI
+        }
+#endif
       SRA |= TxRDY; // Ready for more data
       SRA |= TxEMT; // Transmitter is empty
       SetInterruptStatusRegister();
@@ -711,6 +748,12 @@ void M68681::EventCallback(int type, void *) {
     }
 
     // Try to read a byte from the pipe
+    bool byteRead = false;
+#ifdef BSVC_QT_GUI
+    if(dockPortA != NULL) {
+      byteRead = dockPortA->readByte(&c);
+    } else {
+#endif
 #ifdef _WIN32
     DWORD read = 0;
 	PeekNamedPipe(coma_read_pipe, NULL, 0, NULL, &read, NULL);
@@ -718,6 +761,12 @@ void M68681::EventCallback(int type, void *) {
       //fprintf(stdout, "Leido %c\n", c);
 #else
     if (read(coma_read_id, &c, 1) == 1) {
+#endif
+#ifdef BSVC_QT_GUI
+      byteRead = false;
+    }
+    }
+    if(byteRead) {
 #endif
       // Mask off bits that shouldn't be received
       switch (MR1A & 3) {
@@ -734,18 +783,26 @@ void M68681::EventCallback(int type, void *) {
       default:
         RBA = c;
       }
-
       // Handle any special stuff for the funky modes
       switch ((MR2A & 0xc0) >> 6) {
       case 1: // Automatic-echo mode
+#ifdef BSVC_QT_GUI
+          if(dockPortA!=NULL) {
+            if(dockPortA->writeByte(&c))
+              exit(1);
+          } else {
+#endif
 #ifdef _WIN32
         DWORD written = 0;
-        if (!WriteFile(coma_write_pipe, &RBB, 1, &written, NULL) || written < 1) {
+        if (!WriteFile(coma_write_pipe, &RBA, 1, &written, NULL) || written < 1) {
 #else
-	    if (write(coma_write_id, &RBB, 1) != 1) {
+            if (write(coma_write_id, &RBA, 1) != 1) {
 #endif
           exit(1);
         }
+#ifdef BSVC_QT_GUI
+          }
+#endif
         break;
       }
 
@@ -774,10 +831,14 @@ void M68681::EventCallback(int type, void *) {
 
     // If pipe is not availiable then just pertend we sent it somewhere
 #ifdef _WIN32
-    if (comb_write_pipe == NULL) {
+    if (comb_write_pipe == NULL
 #else
-	if (comb_write_id == -1) {
+    if (comb_write_id == -1
 #endif
+    #ifdef BSVC_QT_GUI
+        && dockPortB == NULL
+    #endif
+        ) {
       SRB |= TxRDY;
       SRB |= TxEMT;
       SetInterruptStatusRegister();
@@ -812,14 +873,23 @@ void M68681::EventCallback(int type, void *) {
     case 3: // Multidrop mode (not implemented)
 
     default: // Normal mode
+#ifdef BSVC_QT_GUI
+        if(dockPortB!=NULL) {
+          if(!dockPortB->writeByte(&c))
+            exit(1);
+        } else {
+#endif
 #ifdef _WIN32
     DWORD written = 0;
     if (!WriteFile(comb_write_pipe, &c, 1, &written, NULL) || written < 1) {
 #else
-	if (write(comb_write_id, &c, 1) != 1) {
+      if (write(comb_write_id, &c, 1) != 1) {
 #endif
         exit(1);
       }
+#ifdef BSVC_QT_GUI
+        }
+#endif
       SRB |= TxRDY;
       SRB |= TxEMT;
       SetInterruptStatusRegister();
@@ -845,6 +915,12 @@ void M68681::EventCallback(int type, void *) {
     }
 
     // Try to read a byte from the pipe
+    bool byteRead = false;
+#ifdef BSVC_QT_GUI
+    if(dockPortB != NULL) {
+      byteRead = dockPortB->readByte(&c);
+    } else {
+#endif
 #ifdef _WIN32
     DWORD read = 0;
 	PeekNamedPipe(comb_read_pipe, NULL, 0, NULL, &read, NULL);
@@ -852,6 +928,12 @@ void M68681::EventCallback(int type, void *) {
       //fprintf(stdout, "Leido %c\n", c);
 #else
     if (read(comb_read_id, &c, 1) == 1) {
+#endif
+#ifdef BSVC_QT_GUI
+      byteRead = false;
+    }
+    }
+    if(byteRead) {
 #endif
       // Mask off bits that shouldn't be received
       switch (MR1B & 3) {
@@ -872,6 +954,12 @@ void M68681::EventCallback(int type, void *) {
       // Handle any special stuff for the funky modes
       switch ((MR2B & 0xc0) >> 6) {
       case 1: // Automatic-echo mode (transmitter link disabled)
+#ifdef BSVC_QT_GUI
+          if(dockPortB!=NULL) {
+            if(dockPortB->writeByte(&c))
+              exit(1);
+          } else {
+#endif
 #ifdef _WIN32
         DWORD written = 0;
         if (!WriteFile(comb_write_pipe, &RBB, 1, &written, NULL) || written < 1) {
@@ -880,6 +968,9 @@ void M68681::EventCallback(int type, void *) {
 #endif
           exit(1);
         }
+#ifdef BSVC_QT_GUI
+          }
+#endif
         break;
       }
 

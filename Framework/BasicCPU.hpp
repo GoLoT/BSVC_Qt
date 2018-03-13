@@ -34,7 +34,7 @@ public:
   unsigned int Granularity() const { return myGranularity; }
 
   // Returns a reference to my event handler.
-  EventHandler &eventHandler() { return myEventHandler; };
+  EventHandler &eventHandler() { return myEventHandler; }
 
   // Returns the number of address spaces used by the processor.
   size_t NumberOfAddressSpaces() const { return myAddressSpaces.size(); }

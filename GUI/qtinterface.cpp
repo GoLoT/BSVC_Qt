@@ -10,6 +10,7 @@
 #include "Framework/AddressSpace.hpp"
 #include "Framework/BasicDeviceRegistry.hpp"
 #include "Framework/BasicLoader.hpp"
+#include "M68k/devices/M68681.hpp"
 
 
 QtInterface::QtInterface(BasicCPU &cpu, BasicDeviceRegistry &registry,
@@ -92,7 +93,7 @@ void RunModeWorker::run() {
     }
     if(stepping) {
       emit stepped();
-      QThread::currentThread()->msleep(230);
+      QThread::currentThread()->msleep(interface->window.getRunStepWait());
     }
   }
   emit stepped();
@@ -235,15 +236,23 @@ bool QtInterface::AttachDevice(std::string name, std::string deviceArgs, size_t 
     return false;
   }
 
-  BasicDevice *device;
-  if (!myDeviceRegistry.Create(name, deviceArgs, myCPU, device)) {
+  BasicDevice *device = NULL;
+  if (name == "M68681") {
+    device = new M68681(deviceArgs, myCPU, &window);
+    if (device == NULL || !device->ErrorMessage().empty()) {
+      delete device;
+      LogLn("ERROR: Couldn't create the device!");
+      window.setStatusbarTemp((std::string) "ERROR: Couldn't create the device!");
+      return false;
+    }
+  } else if (!myDeviceRegistry.Create(name, deviceArgs, myCPU, device)) {
     LogLn("ERROR: Couldn't create the device!");
     window.setStatusbarTemp((std::string) "ERROR: Couldn't create the device!");
     return false;
   }
   myCPU.addressSpace(addressSpace).AttachDevice(device);
   LogLn("Device created!");
-  window.setStatusbarTemp((std::string) "ERROR: Couldn't create the device!");
+  window.setStatusbarTemp((std::string) "Device created!");
   return true;
 }
 
@@ -703,11 +712,12 @@ void QtInterface::AttachDevice(const std::string &args) {
     return;
   }
   BasicDevice *device;
-  if (!myDeviceRegistry.Create(name, deviceArgs, myCPU, device)) {
+  //if (!myDeviceRegistry.Create(name, deviceArgs, myCPU, device)) {
+  if (!AttachDevice(name, deviceArgs, addressSpace)) {
     LogLn("ERROR: Couldn't create the device!");
     return;
   }
-  myCPU.addressSpace(addressSpace).AttachDevice(device);
+  //myCPU.addressSpace(addressSpace).AttachDevice(device);
 }
 
 void QtInterface::AddBreakpoint(const std::string &args) {

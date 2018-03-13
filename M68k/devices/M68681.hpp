@@ -10,9 +10,17 @@
 
 #include "Framework/BasicDevice.hpp"
 
+#ifdef BSVC_QT_GUI
+  #include "Widgets/duartportdockwidget.h"
+#endif
+
 class M68681 : public BasicDevice {
 public:
+#ifdef BSVC_QT_GUI
+  M68681(const std::string &args, BasicCPU &cpu, QWidget* parent = NULL);
+#else
   M68681(const std::string &args, BasicCPU &cpu);
+#endif
   ~M68681();
 
   // Returns true iff the address maps into the device
@@ -119,6 +127,12 @@ private:
 #endif
 
   void SetInterruptStatusRegister();
+
+#ifdef BSVC_QT_GUI
+private:
+  DUARTPortDockWidget* dockPortA = NULL;
+  DUARTPortDockWidget* dockPortB = NULL;
+#endif
 };
 
 #endif  // M68K_DEVICES_M68681_HPP_

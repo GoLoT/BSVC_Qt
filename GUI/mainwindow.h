@@ -48,6 +48,8 @@ private slots:
 
   void on_actionLoad_setup_triggered();
 
+  void on_actionSet_RunStep_delay_triggered();
+
 signals:
   void logOutputChanged();
   void newDeviceCreated();
@@ -78,6 +80,7 @@ private:
   MemoryDockWidget* memoryDock;
   QList<MemoryDockWidget*> memoryDockList;
   MemoryModelList* memory;
+  int runStepWait = 220;
 
 public:
   QtInterface *interface;
@@ -90,6 +93,8 @@ public:
   void setStatusbarTemp(std::string str);
   void setStatusbarTemp(QString str);
   bool isRunning();
+  //int setRunStepWait(int s) {runStepWait = s;}
+  int getRunStepWait() {return runStepWait;}
 
   friend class QtInterface;
   friend class RunModeWorker;
