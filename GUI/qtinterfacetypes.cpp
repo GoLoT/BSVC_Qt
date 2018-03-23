@@ -341,7 +341,7 @@ void CodeLineList::loadListing(const std::string &fileName) {
       return;
   }
   QTextStream in(&file);
-  QRegularExpression regex("([0-9a-fA-F]+)  ([^ ].*?  *| *)([0-9]+)  (.*)");
+  QRegularExpression regex("([0-9a-fA-F]+)  ([^ ].*?  +| *)([0-9]+)  (.*)");
   QRegularExpressionMatch match;
   beginResetModel();
   while(!in.atEnd()) {

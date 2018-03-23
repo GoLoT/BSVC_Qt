@@ -116,6 +116,11 @@ void DUARTTextEdit::keyPressEvent(QKeyEvent *e) {
         else
           c = key+32;
         dock->insertByte(&c);
+      } else if(e->key() >= Qt::Key_0 && e->key() <= Qt::Key_9) {
+        if(!(e->modifiers() & Qt::ShiftModifier)) {
+          c = key;
+          dock->insertByte(&c);
+        }
       }
   }
   //QTextEdit::keyPressEvent(e);
